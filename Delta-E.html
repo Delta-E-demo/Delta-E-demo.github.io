@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delta-E</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #04060e;
+      --surface-1: #0a0f1a;
+      --surface-2: #111827;
+      --surface-3: #1a2340;
+      --border: #1e2d4a;
+      --border-light: #283a5c;
+      --primary: #3b82f6;
+      --primary-light: #60a5fa;
+      --primary-dark: #2563eb;
+      --primary-glow: rgba(59,130,246,0.12);
+      --accent: #f59e0b;
+      --accent-light: #fbbf24;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --text: #eef2ff;
+      --text-sec: #8a9cc5;
+      --text-muted: #4a5e82;
+      --sidebar-w: 260px;
+      --topbar-h: 64px;
+      --bottomnav-h: 68px;
+    }
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    h1,h2,h3,h4 { font-family: 'Sora', sans-serif; }
+
+    .bg-orbs { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+    .bg-orbs .orb { position:absolute; border-radius:50%; filter:blur(100px); opacity:0.35; }
+    .orb-1 { width:500px; height:500px; background:radial-gradient(circle,#2563eb,transparent 70%); top:-10%; left:-10%; animation:orbFloat1 20s ease-in-out infinite; }
+    .orb-2 { width:400px; height:400px; background:radial-gradient(circle,#1d4ed8,transparent 70%); bottom:-5%; right:-8%; animation:orbFloat2 25s ease-in-out infinite; }
+    .orb-3 { width:300px; height:300px; background:radial-gradient(circle,#f59e0b,transparent 70%); top:50%; left:50%; opacity:0.15; animation:orbFloat3 18s ease-in-out infinite; }
+    @keyframes orbFloat1 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(80px,60px)} }
+    @keyframes orbFloat2 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-60px,-80px)} }
+    @keyframes orbFloat3 { 0%,100%{transform:translate(-50%,-50%)} 50%{transform:translate(-30%,-30%)} }
+    .bg-grid {
+      position:fixed; inset:0; z-index:0; pointer-events:none;
+      background-image: linear-gradient(rgba(59,130,246,0.03) 1px,transparent 1px), linear-gradient(90deg,rgba(59,130,246,0.03) 1px,transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    .sidebar {
+      position:fixed; left:0; top:0; bottom:0; width:var(--sidebar-w);
+      background:rgba(10,15,26,0.85); backdrop-filter:blur(20px);
+      border-right:1px solid var(--border); z-index:50;
+      display:flex; flex-direction:column; padding:24px 0; transition:transform 0.3s ease;
+    }
+    .sidebar-logo { padding:0 24px 28px; display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--border); margin-bottom:16px; }
+    .sidebar-logo span { font-family:'Sora'; font-weight:700; font-size:22px; letter-spacing:-0.5px; }
+    .sidebar-nav { flex:1; display:flex; flex-direction:column; gap:2px; padding:0 12px; overflow-y:auto; }
+    .sidebar-nav a { display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:10px; color:var(--text-sec); text-decoration:none; font-size:14px; font-weight:500; cursor:pointer; transition:all 0.2s; position:relative; }
+    .sidebar-nav a i { width:20px; text-align:center; font-size:15px; }
+    .sidebar-nav a:hover { color:var(--text); background:var(--surface-2); }
+    .sidebar-nav a.active { color:var(--primary-light); background:var(--primary-glow); }
+    .sidebar-nav a.active::before { content:''; position:absolute; left:-12px; top:50%; transform:translateY(-50%); width:3px; height:24px; background:var(--primary); border-radius:0 3px 3px 0; }
+    .sidebar-nav .nav-section { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; padding:16px 14px 6px; }
+    .sidebar-user { padding:16px 20px; border-top:1px solid var(--border); display:flex; align-items:center; gap:12px; cursor:pointer; }
+    .sidebar-user .avatar { width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,var(--primary-dark),var(--accent)); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; color:#fff; }
+    .sidebar-user .info { flex:1; }
+    .sidebar-user .info p { font-size:13px; font-weight:600; }
+    .sidebar-user .info small { font-size:11px; color:var(--text-muted); }
+
+    .main-content { margin-left:var(--sidebar-w); min-height:100vh; position:relative; z-index:1; padding-bottom:var(--bottomnav-h); }
+
+    .topbar { position:sticky; top:0; height:var(--topbar-h); display:flex; align-items:center; gap:16px; padding:0 28px; background:rgba(4,6,14,0.7); backdrop-filter:blur(16px); border-bottom:1px solid var(--border); z-index:40; }
+    .menu-toggle { display:none; background:none; border:none; color:var(--text); font-size:20px; cursor:pointer; padding:4px; }
+    .page-title { font-size:18px; font-weight:700; flex:1; }
+    .topbar-actions { display:flex; align-items:center; gap:8px; }
+    .topbar-btn { width:40px; height:40px; border-radius:10px; border:1px solid var(--border); background:var(--surface-1); color:var(--text-sec); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px; transition:all 0.2s; position:relative; }
+    .topbar-btn:hover { color:var(--text); border-color:var(--border-light); background:var(--surface-2); }
+    .topbar-btn .badge { position:absolute; top:-4px; right:-4px; width:18px; height:18px; background:var(--danger); border-radius:50%; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; color:#fff; }
+    .topbar-avatar { width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,var(--primary-dark),var(--accent)); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; color:#fff; cursor:pointer; }
+
+    .page-content { padding:24px 28px; }
+    .page { display:none; animation:pageIn 0.4s ease; }
+    .page.active { display:block; }
+    @keyframes pageIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+    .card { background:rgba(10,15,26,0.7); backdrop-filter:blur(8px); border:1px solid var(--border); border-radius:16px; padding:20px; transition:all 0.3s ease; }
+    .card:hover { border-color:var(--border-light); }
+    .card-glow:hover { box-shadow:0 0 30px var(--primary-glow); }
+
+    .greeting { margin-bottom:24px; }
+    .greeting h2 { font-size:24px; font-weight:700; margin-bottom:4px; }
+    .greeting p { color:var(--text-sec); font-size:14px; }
+
+    .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+    .stat-card { background:var(--surface-1); border:1px solid var(--border); border-radius:14px; padding:18px; transition:all 0.3s; cursor:pointer; position:relative; overflow:hidden; }
+    .stat-card:hover { transform:translateY(-3px); border-color:var(--border-light); }
+    .stat-card .stat-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:16px; margin-bottom:12px; }
+    .stat-card .stat-val { font-family:'Sora'; font-size:22px; font-weight:700; margin-bottom:2px; }
+    .stat-card .stat-label { font-size:12px; color:var(--text-muted); }
+    .stat-card .stat-change { font-size:12px; font-weight:600; margin-top:6px; display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:6px; }
+    .stat-change.up { color:var(--danger); background:rgba(239,68,68,0.1); }
+    .stat-change.down { color:var(--success); background:rgba(34,197,94,0.1); }
+    .stat-card::after { content:''; position:absolute; top:0; right:0; width:80px; height:80px; border-radius:50%; filter:blur(40px); opacity:0.15; pointer-events:none; }
+    .stat-card:nth-child(1) .stat-icon { background:rgba(59,130,246,0.15); color:var(--primary); }
+    .stat-card:nth-child(1)::after { background:var(--primary); }
+    .stat-card:nth-child(2) .stat-icon { background:rgba(245,158,11,0.15); color:var(--accent); }
+    .stat-card:nth-child(2)::after { background:var(--accent); }
+    .stat-card:nth-child(3) .stat-icon { background:rgba(168,85,247,0.15); color:#a855f7; }
+    .stat-card:nth-child(3)::after { background:#a855f7; }
+    .stat-card:nth-child(4) .stat-icon { background:rgba(34,197,94,0.15); color:var(--success); }
+    .stat-card:nth-child(4)::after { background:var(--success); }
+
+    .dual-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+    .section-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+    .section-head h3 { font-size:16px; font-weight:700; }
+    .section-head a { font-size:13px; color:var(--primary); text-decoration:none; cursor:pointer; }
+    .section-head a:hover { text-decoration:underline; }
+
+    .trend-list { display:flex; flex-direction:column; gap:10px; }
+    .trend-item { display:flex; align-items:center; gap:12px; padding:12px; border-radius:12px; background:var(--surface-1); border:1px solid transparent; cursor:pointer; transition:all 0.2s; }
+    .trend-item:hover { border-color:var(--border-light); background:var(--surface-2); }
+    .trend-rank { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
+    .trend-rank.r1 { background:linear-gradient(135deg,#f59e0b,#d97706); color:#000; }
+    .trend-rank.r2 { background:linear-gradient(135deg,#94a3b8,#64748b); color:#000; }
+    .trend-rank.r3 { background:linear-gradient(135deg,#b45309,#92400e); color:#fff; }
+    .trend-rank.rn { background:var(--surface-3); color:var(--text-sec); }
+    .trend-info { flex:1; min-width:0; }
+    .trend-info p { font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .trend-info small { font-size:12px; color:var(--text-muted); }
+    .trend-pct { font-size:13px; font-weight:700; color:var(--success); white-space:nowrap; }
+    .trend-spark { width:60px; height:28px; flex-shrink:0; }
+
+    .feed-list { display:flex; flex-direction:column; gap:12px; }
+    .feed-item { padding:14px; border-radius:12px; background:var(--surface-1); border:1px solid var(--border); cursor:pointer; transition:all 0.2s; }
+    .feed-item:hover { border-color:var(--border-light); }
+    .feed-head { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .feed-avatar { width:32px; height:32px; border-radius:8px; background:var(--surface-3); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:var(--primary); }
+    .feed-meta { flex:1; }
+    .feed-meta p { font-size:13px; font-weight:600; }
+    .feed-meta small { font-size:11px; color:var(--text-muted); }
+    .feed-body { font-size:13px; color:var(--text-sec); line-height:1.5; margin-bottom:10px; }
+    .feed-footer { display:flex; align-items:center; gap:16px; }
+    .feed-action { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-muted); background:none; border:none; cursor:pointer; padding:4px 8px; border-radius:6px; transition:all 0.2s; }
+    .feed-action:hover { color:var(--text); background:var(--surface-2); }
+    .feed-action.liked { color:var(--primary); }
+    .feed-tag { font-size:11px; padding:3px 8px; border-radius:6px; background:var(--primary-glow); color:var(--primary); font-weight:500; }
+
+    .radar-filters { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+    .filter-chip { padding:8px 16px; border-radius:20px; border:1px solid var(--border); background:var(--surface-1); color:var(--text-sec); font-size:13px; font-weight:500; cursor:pointer; transition:all 0.2s; }
+    .filter-chip:hover,.filter-chip.active { background:var(--primary-glow); border-color:var(--primary); color:var(--primary-light); }
+    .radar-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+    .radar-card { background:var(--surface-1); border:1px solid var(--border); border-radius:14px; padding:18px; transition:all 0.3s; cursor:pointer; }
+    .radar-card:hover { transform:translateY(-4px); border-color:var(--border-light); box-shadow:0 12px 32px rgba(0,0,0,0.3); }
+    .radar-card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; }
+    .radar-card-top h4 { font-size:15px; font-weight:700; }
+    .radar-badge { font-size:11px; padding:3px 10px; border-radius:20px; font-weight:600; background:rgba(34,197,94,0.15); color:var(--success); }
+    .radar-card-cat { font-size:12px; color:var(--text-muted); margin-bottom:10px; }
+    .radar-card-spark { width:100%; height:50px; margin-bottom:12px; }
+    .radar-card-bottom { display:flex; justify-content:space-between; align-items:center; }
+    .radar-card-bottom span { font-size:12px; color:var(--text-muted); }
+    .radar-card-pct { font-size:18px; font-weight:800; }
+    .radar-card-pct.up { color:var(--success); }
+
+    .index-controls { display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
+    .idx-select { background:var(--surface-1); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 14px; font-size:13px; cursor:pointer; font-family:'Plus Jakarta Sans'; }
+    .idx-select:focus { outline:none; border-color:var(--primary); }
+    .index-chart-box { background:var(--surface-1); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:20px; }
+    .index-chart-box canvas { width:100%!important; max-height:280px; }
+    .index-table { width:100%; border-collapse:collapse; }
+    .index-table th { text-align:left; padding:12px 14px; font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border); font-weight:600; }
+    .index-table td { padding:12px 14px; font-size:14px; border-bottom:1px solid var(--border); }
+    .index-table tr:hover td { background:var(--surface-1); }
+    .price-up { color:var(--danger); font-weight:600; }
+    .price-down { color:var(--success); font-weight:600; }
+    .price-same { color:var(--text-muted); }
+    .kel-tag { font-size:11px; padding:2px 8px; border-radius:6px; background:var(--surface-3); color:var(--text-sec); }
+
+    .map-controls { display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; align-items:center; }
+    .map-controls .map-select { background:var(--surface-1); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 16px; font-size:14px; font-weight:500; cursor:pointer; font-family:'Plus Jakarta Sans'; min-width:200px; transition:all 0.2s; }
+    .map-controls .map-select:focus { outline:none; border-color:var(--primary); }
+    .map-stats { display:flex; gap:20px; align-items:center; margin-left:auto; }
+    .map-stat-pill { display:flex; align-items:center; gap:8px; padding:8px 16px; border-radius:10px; font-size:13px; font-weight:600; }
+    .map-stat-pill.supplier-pill { background:rgba(59,130,246,0.1); color:var(--primary-light); }
+    .map-stat-pill.competitor-pill { background:rgba(239,68,68,0.1); color:var(--danger); }
+    .map-stat-pill .pill-dot { width:10px; height:10px; border-radius:50%; }
+    .map-stat-pill.supplier-pill .pill-dot { background:var(--primary); }
+    .map-stat-pill.competitor-pill .pill-dot { background:var(--danger); }
+
+    .map-wrapper { position:relative; border-radius:16px; overflow:hidden; border:1px solid var(--border); margin-bottom:24px; }
+    .map-container { position:relative; width:100%; height:420px; background:var(--surface-1); overflow:hidden; }
+    .map-bg-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(59,130,246,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,0.04) 1px,transparent 1px); background-size:40px 40px; }
+    .map-road { position:absolute; background:rgba(59,130,246,0.08); border-radius:2px; }
+    .map-road-h { height:3px; left:0; right:0; }
+    .map-road-v { width:3px; top:0; bottom:0; }
+    .map-road-main { background:rgba(59,130,246,0.15); }
+    .map-road-h.main { height:5px; }
+    .map-road-v.main { width:5px; }
+    .map-area-label { position:absolute; font-size:11px; color:var(--text-muted); font-weight:500; padding:4px 10px; border-radius:6px; background:rgba(4,6,14,0.6); pointer-events:none; opacity:0.5; }
+    .map-area-label.active-area { opacity:1; color:var(--primary-light); background:var(--primary-glow); font-weight:600; font-size:12px; }
+    .map-you { position:absolute; z-index:15; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:4px; }
+    .map-you-dot { width:20px; height:20px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 4px rgba(245,158,11,0.3), 0 0 20px rgba(245,158,11,0.4); animation:youPulse 2s infinite; }
+    .map-you-label { font-size:10px; font-weight:700; color:var(--accent); white-space:nowrap; background:rgba(4,6,14,0.8); padding:2px 8px; border-radius:4px; }
+    @keyframes youPulse { 0%,100%{box-shadow:0 0 0 4px rgba(245,158,11,0.3),0 0 20px rgba(245,158,11,0.4)} 50%{box-shadow:0 0 0 8px rgba(245,158,11,0.15),0 0 30px rgba(245,158,11,0.3)} }
+    .map-marker { position:absolute; z-index:12; transform:translate(-50%,-50%); transition:all 0.3s ease; cursor:pointer; }
+    .map-marker-pin { width:32px; height:32px; border-radius:50% 50% 50% 0; transform:rotate(-45deg); display:flex; align-items:center; justify-content:center; box-shadow:0 3px 10px rgba(0,0,0,0.3); }
+    .map-marker-pin i { transform:rotate(45deg); font-size:13px; }
+    .map-marker-pin.supplier-pin { background:var(--primary); color:#fff; }
+    .map-marker-pin.competitor-pin { background:var(--danger); color:#fff; }
+    .map-marker:hover { z-index:14; transform:translate(-50%,-50%) scale(1.15); }
+    .map-marker:hover .map-marker-pin { box-shadow:0 4px 16px rgba(0,0,0,0.4); }
+    .map-marker-label { position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:4px; font-size:10px; font-weight:600; white-space:nowrap; padding:2px 8px; border-radius:4px; background:rgba(4,6,14,0.85); color:var(--text-sec); opacity:0; transition:opacity 0.2s; pointer-events:none; }
+    .map-marker:hover .map-marker-label { opacity:1; }
+    .map-legend { position:absolute; bottom:12px; left:12px; display:flex; gap:16px; background:rgba(4,6,14,0.85); backdrop-filter:blur(8px); padding:10px 16px; border-radius:10px; border:1px solid var(--border); font-size:12px; }
+    .map-legend span { display:flex; align-items:center; gap:6px; color:var(--text-sec); }
+    .map-tooltip { position:absolute; z-index:30; background:rgba(10,15,26,0.95); backdrop-filter:blur(12px); border:1px solid var(--border-light); border-radius:12px; padding:16px; min-width:220px; pointer-events:none; opacity:0; transition:opacity 0.2s; box-shadow:0 8px 32px rgba(0,0,0,0.5); }
+    .map-tooltip.show { opacity:1; }
+    .map-tooltip h4 { font-size:14px; margin-bottom:6px; }
+    .map-tooltip p { font-size:12px; color:var(--text-sec); line-height:1.6; }
+    .map-tooltip .tt-row { display:flex; align-items:center; gap:6px; margin-top:4px; font-size:12px; color:var(--text-sec); }
+    .map-tooltip .tt-row i { width:14px; text-align:center; }
+    .map-tooltip .tt-type { font-size:11px; padding:3px 10px; border-radius:6px; font-weight:600; display:inline-block; margin-top:8px; }
+    .tt-supplier { background:rgba(59,130,246,0.15); color:var(--primary-light); }
+    .tt-competitor { background:rgba(239,68,68,0.15); color:var(--danger); }
+
+    .supplier-list { display:flex; flex-direction:column; gap:10px; }
+    .supplier-item { display:flex; align-items:center; gap:14px; padding:14px; border-radius:12px; background:var(--surface-1); border:1px solid var(--border); transition:all 0.2s; cursor:pointer; }
+    .supplier-item:hover { border-color:var(--border-light); background:var(--surface-2); }
+    .supplier-icon { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+    .supplier-info { flex:1; }
+    .supplier-info h4 { font-size:14px; font-weight:600; margin-bottom:2px; }
+    .supplier-info p { font-size:12px; color:var(--text-muted); }
+    .supplier-dist { font-size:12px; color:var(--text-sec); white-space:nowrap; }
+    .supplier-rating { font-size:12px; color:var(--accent); }
+    .threat-badge { font-size:11px; padding:3px 10px; border-radius:6px; font-weight:600; white-space:nowrap; }
+
+    .chat-layout { display:flex; flex-direction:column; height:calc(100vh - var(--topbar-h) - 48px); }
+    .chat-body { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:14px; }
+    .msg { max-width:75%; padding:14px 18px; border-radius:18px; line-height:1.6; font-size:14px; animation:msgIn 0.3s ease; }
+    .msg-bot { align-self:flex-start; background:var(--surface-2); border-bottom-left-radius:4px; }
+    .msg-user { align-self:flex-end; background:var(--primary-dark); color:#fff; border-bottom-right-radius:4px; }
+    @keyframes msgIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .quick-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .quick-chip { padding:7px 14px; border-radius:20px; border:1px solid var(--border); background:var(--surface-1); color:var(--text-sec); font-size:12px; cursor:pointer; transition:all 0.2s; }
+    .quick-chip:hover { border-color:var(--primary); color:var(--primary-light); background:var(--primary-glow); }
+    .chat-footer { padding:16px 20px; border-top:1px solid var(--border); display:flex; gap:12px; align-items:center; background:rgba(4,6,14,0.5); backdrop-filter:blur(8px); }
+    .chat-input { flex:1; background:var(--surface-1); border:1px solid var(--border); border-radius:24px; padding:12px 18px; color:var(--text); font-size:14px; font-family:'Plus Jakarta Sans'; }
+    .chat-input:focus { outline:none; border-color:var(--primary); }
+    .chat-input::placeholder { color:var(--text-muted); }
+    .chat-send { width:44px; height:44px; border-radius:50%; border:none; background:var(--primary); color:#fff; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
+    .chat-send:hover { background:var(--primary-light); transform:scale(1.05); }
+    .typing { display:flex; gap:5px; padding:14px 18px; background:var(--surface-2); border-radius:18px; border-bottom-left-radius:4px; align-self:flex-start; }
+    .typing span { width:7px; height:7px; background:var(--text-muted); border-radius:50%; animation:bounce 1.4s infinite; }
+    .typing span:nth-child(2) { animation-delay:0.2s; }
+    .typing span:nth-child(3) { animation-delay:0.4s; }
+    @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+
+    .pasar-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+    .btn { padding:10px 20px; border-radius:10px; border:none; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s; font-family:'Plus Jakarta Sans'; display:inline-flex; align-items:center; gap:8px; }
+    .btn-primary { background:var(--primary); color:#fff; }
+    .btn-primary:hover { background:var(--primary-light); transform:translateY(-2px); }
+    .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--text-sec); }
+    .btn-ghost:hover { border-color:var(--border-light); color:var(--text); background:var(--surface-1); }
+    .pasar-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
+    .pasar-stat { text-align:center; padding:16px; background:var(--surface-1); border:1px solid var(--border); border-radius:12px; }
+    .pasar-stat .val { font-family:'Sora'; font-size:20px; font-weight:700; }
+    .pasar-stat .lbl { font-size:12px; color:var(--text-muted); margin-top:4px; }
+
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); z-index:100; display:none; align-items:center; justify-content:center; padding:20px; }
+    .modal-overlay.show { display:flex; }
+    .modal { background:var(--surface-2); border:1px solid var(--border); border-radius:18px; padding:28px; width:100%; max-width:460px; animation:modalIn 0.3s ease; }
+    @keyframes modalIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
+    .modal h3 { font-size:18px; margin-bottom:20px; }
+    .form-group { margin-bottom:16px; }
+    .form-group label { display:block; font-size:13px; font-weight:500; margin-bottom:6px; color:var(--text-sec); }
+    .form-control { width:100%; padding:11px 14px; background:var(--surface-1); border:1px solid var(--border); border-radius:10px; color:var(--text); font-size:14px; font-family:'Plus Jakarta Sans'; }
+    .form-control:focus { outline:none; border-color:var(--primary); }
+    textarea.form-control { min-height:80px; resize:vertical; }
+    .modal-actions { display:flex; gap:10px; margin-top:20px; }
+    .modal-actions .btn { flex:1; justify-content:center; }
+
+    .profile-top { text-align:center; padding:20px 0 28px; }
+    .profile-pic { width:80px; height:80px; border-radius:20px; margin:0 auto 16px; background:linear-gradient(135deg,var(--primary-dark),var(--accent)); display:flex; align-items:center; justify-content:center; font-size:30px; font-weight:800; color:#fff; }
+    .profile-top h3 { font-size:20px; font-weight:700; }
+    .profile-top p { color:var(--text-sec); font-size:14px; }
+    .setting-group { margin-bottom:24px; }
+    .setting-group h4 { font-size:15px; font-weight:700; margin-bottom:14px; }
+
+    .notif-panel { position:fixed; top:0; right:-380px; width:380px; height:100vh; background:rgba(10,15,26,0.95); backdrop-filter:blur(20px); border-left:1px solid var(--border); z-index:60; transition:right 0.3s ease; display:flex; flex-direction:column; }
+    .notif-panel.open { right:0; }
+    .notif-panel-head { display:flex; justify-content:space-between; align-items:center; padding:20px; border-bottom:1px solid var(--border); }
+    .notif-panel-head h3 { font-size:16px; }
+    .notif-close { background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer; }
+    .notif-panel-body { flex:1; overflow-y:auto; padding:12px; }
+    .notif-item { display:flex; gap:12px; padding:14px; border-radius:12px; cursor:pointer; transition:all 0.2s; }
+    .notif-item:hover { background:var(--surface-2); }
+    .notif-item.unread { background:var(--primary-glow); }
+    .notif-item .ni-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+    .notif-item .ni-content { flex:1; }
+    .notif-item .ni-content p { font-size:13px; line-height:1.5; }
+    .notif-item .ni-content small { font-size:11px; color:var(--text-muted); }
+    .notif-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.3); z-index:55; display:none; }
+    .notif-backdrop.show { display:block; }
+
+    .toast-container { position:fixed; top:80px; right:24px; z-index:200; display:flex; flex-direction:column; gap:8px; }
+    .toast { display:flex; align-items:center; gap:10px; padding:14px 20px; background:var(--surface-2); border:1px solid var(--border); border-radius:12px; font-size:13px; transform:translateX(120%); transition:transform 0.3s ease; box-shadow:0 8px 32px rgba(0,0,0,0.3); min-width:280px; }
+    .toast.show { transform:translateX(0); }
+    .toast-success i { color:var(--success); }
+    .toast-error i { color:var(--danger); }
+    .toast-info i { color:var(--primary); }
+
+    .bottom-nav { display:none; position:fixed; bottom:0; left:0; right:0; height:var(--bottomnav-h); background:rgba(4,6,14,0.9); backdrop-filter:blur(16px); border-top:1px solid var(--border); z-index:50; padding:6px 0 env(safe-area-inset-bottom,6px); }
+    .bottom-nav-inner { display:flex; justify-content:space-around; height:100%; }
+    .bnav-item { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; flex:1; background:none; border:none; color:var(--text-muted); font-size:11px; font-family:'Plus Jakarta Sans'; cursor:pointer; transition:all 0.2s; position:relative; }
+    .bnav-item i { font-size:20px; }
+    .bnav-item.active { color:var(--primary-light); }
+    .bnav-item.active::before { content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:24px; height:2px; background:var(--primary); border-radius:0 0 2px 2px; }
+
+    .login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; position:relative; z-index:1; }
+    .login-card { width:100%; max-width:420px; background:var(--surface-2); border:1px solid var(--border); border-radius:20px; padding:36px; animation:modalIn 0.4s ease; }
+    .login-card h2 { font-size:28px; font-weight:800; text-align:center; margin-bottom:4px; }
+    .login-card .sub { text-align:center; color:var(--text-sec); font-size:14px; margin-bottom:28px; }
+    .social-row { display:flex; gap:10px; margin-bottom:20px; }
+    .social-btn { flex:1; padding:11px; border:1px solid var(--border); border-radius:10px; background:transparent; color:var(--text-sec); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; gap:8px; transition:all 0.2s; font-family:'Plus Jakarta Sans'; }
+    .social-btn:hover { border-color:var(--border-light); color:var(--text); background:var(--surface-1); }
+    .divider { text-align:center; color:var(--text-muted); font-size:13px; margin:20px 0; position:relative; }
+    .divider::before,.divider::after { content:''; position:absolute; top:50%; width:38%; height:1px; background:var(--border); }
+    .divider::before { left:0; } .divider::after { right:0; }
+
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--surface-3); border-radius:3px; }
+
+    @media(max-width:1024px) {
+      .stat-grid { grid-template-columns:repeat(2,1fr); }
+      .dual-grid { grid-template-columns:1fr; }
+      .pasar-stats { grid-template-columns:repeat(2,1fr); }
+    }
+    @media(max-width:768px) {
+      .sidebar { transform:translateX(-100%); }
+      .sidebar.open { transform:translateX(0); }
+      .main-content { margin-left:0; }
+      .menu-toggle { display:block; }
+      .bottom-nav { display:block; }
+      .page-content { padding:16px; }
+      .topbar { padding:0 16px; }
+      .greeting h2 { font-size:20px; }
+      .notif-panel { width:100%; right:-100%; }
+      .pasar-stats { grid-template-columns:1fr 1fr; }
+      .login-card { padding:24px; }
+      .index-controls { flex-direction:column; }
+      .map-container { height:320px; }
+      .map-controls { flex-direction:column; align-items:stretch; }
+      .map-stats { margin-left:0; justify-content:center; }
+    }
+    @media(max-width:400px) {
+      .stat-grid { grid-template-columns:1fr 1fr; gap:10px; }
+      .radar-grid { grid-template-columns:1fr; }
+    }
+    @media(prefers-reduced-motion:reduce) {
+      *,*::before,*::after { animation-duration:0.01ms!important; transition-duration:0.01ms!important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
+  <div class="bg-grid"></div>
+
+  <div class="notif-backdrop" id="notifBackdrop" onclick="toggleNotif(false)"></div>
+  <div class="notif-panel" id="notifPanel">
+    <div class="notif-panel-head"><h3>Notifikasi</h3><button class="notif-close" onclick="toggleNotif(false)" aria-label="Tutup"><i class="fas fa-times"></i></button></div>
+    <div class="notif-panel-body">
+      <div class="notif-item unread"><div class="ni-icon" style="background:rgba(239,68,68,0.15);color:var(--danger)"><i class="fas fa-arrow-trend-up"></i></div><div class="ni-content"><p>Harga tepung terigu naik 2.1% di area Purwosari</p><small>5 menit lalu</small></div></div>
+      <div class="notif-item unread"><div class="ni-icon" style="background:rgba(59,130,246,0.15);color:var(--primary)"><i class="fas fa-fire"></i></div><div class="ni-content"><p>Cilok Goreng trending di Purwosari dengan kenaikan 340%</p><small>12 menit lalu</small></div></div>
+      <div class="notif-item"><div class="ni-icon" style="background:rgba(245,158,11,0.15);color:var(--accent)"><i class="fas fa-map-pin"></i></div><div class="ni-content"><p>Pesaing baru terdeteksi: Bakso Pak Joko buka di 500m dari lokasi Anda</p><small>1 jam lalu</small></div></div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="modal-overlay" id="laporanModal">
+    <div class="modal">
+      <h3>Buat Laporan PasarKita</h3>
+      <div class="form-group"><label>Kategori</label><select class="form-control" id="laporanKategori"><option value="harga">Perubahan Harga</option><option value="stok">Ketersediaan Stok</option><option value="pesaing">Pesaing Baru</option><option value="lainnya">Lainnya</option></select></div>
+      <div class="form-group"><label>Lokasi</label><input type="text" class="form-control" id="laporanLokasi" placeholder="Contoh: Pasar Pleburan"></div>
+      <div class="form-group"><label>Deskripsi</label><textarea class="form-control" id="laporanDesc" placeholder="Jelaskan kondisi pasar yang Anda temui..."></textarea></div>
+      <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal('laporanModal')">Batal</button><button class="btn btn-primary" onclick="submitLaporan()"><i class="fas fa-paper-plane"></i> Kirim</button></div>
+    </div>
+  </div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo"><span>DELTA-E</span></div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Utama</div>
+      <a class="active" data-page="home"><i class="fas fa-home"></i> Beranda</a>
+      <a data-page="tradeRadar"><i class="fas fa-fire"></i> Trade Radar</a>
+      <a data-page="localIndex"><i class="fas fa-chart-column"></i> Local Index</a>
+      <a data-page="supplyMapper"><i class="fas fa-map-location-dot"></i> Supply Mapper</a>
+      <div class="nav-section">Komunitas</div>
+      <a data-page="smartAdvisor"><i class="fas fa-robot"></i> Smart Advisor</a>
+      <a data-page="pasarKita"><i class="fas fa-users"></i> PasarKita</a>
+      <div class="nav-section">Akun</div>
+      <a data-page="profile"><i class="fas fa-user-gear"></i> Pengaturan</a>
+      <a onclick="doLogout()"><i class="fas fa-right-from-bracket"></i> Keluar</a>
+    </nav>
+    <div class="sidebar-user" onclick="showPage('profile')"><div class="avatar">MN</div><div class="info"><p>Maya Novita</p><small>Pelaku UMKM</small></div></div>
+  </aside>
+
+  <main class="main-content" id="mainContent">
+    <header class="topbar">
+      <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Menu"><i class="fas fa-bars"></i></button>
+      <h2 class="page-title" id="pageTitle">Beranda</h2>
+      <div class="topbar-actions">
+        <button class="topbar-btn" aria-label="Cari"><i class="fas fa-search"></i></button>
+        <button class="topbar-btn" onclick="toggleNotif(true)" aria-label="Notifikasi"><i class="fas fa-bell"></i><span class="badge">3</span></button>
+        <div class="topbar-avatar" onclick="showPage('profile')">MN</div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <section class="page active" id="homePage">
+        <div class="greeting"><h2 id="greetingText">Selamat Pagi, Maya</h2><p>Berikut ringkasan bisnis dan pasar Anda hari ini.</p></div>
+        <div class="stat-grid">
+          <div class="stat-card" onclick="showPage('localIndex')"><div class="stat-icon"><i class="fas fa-chart-line"></i></div><div class="stat-val">Stabil</div><div class="stat-label">Indeks Harga Lokal</div><div class="stat-change up"><i class="fas fa-arrow-up"></i> 2.1%</div></div>
+          <div class="stat-card" onclick="showPage('tradeRadar')"><div class="stat-icon"><i class="fas fa-fire"></i></div><div class="stat-val">5</div><div class="stat-label">Produk Trending</div><div class="stat-change up"><i class="fas fa-arrow-up"></i> 3 baru</div></div>
+          <div class="stat-card" onclick="showPage('supplyMapper')"><div class="stat-icon"><i class="fas fa-store"></i></div><div class="stat-val">12</div><div class="stat-label">Supplier Terverifikasi</div><div class="stat-change down"><i class="fas fa-arrow-down"></i> 2 dekat</div></div>
+          <div class="stat-card" onclick="showPage('pasarKita')"><div class="stat-icon"><i class="fas fa-message"></i></div><div class="stat-val">23</div><div class="stat-label">Laporan Komunitas</div><div class="stat-change up"><i class="fas fa-arrow-up"></i> 8 hari ini</div></div>
+        </div>
+        <div class="dual-grid">
+          <div class="card card-glow"><div class="section-head"><h3><i class="fas fa-chart-column" style="color:var(--primary);margin-right:8px"></i>Local Index</h3><a onclick="showPage('localIndex')">Lihat Detail</a></div><div style="height:200px"><canvas id="homeIdxChart"></canvas></div></div>
+          <div class="card card-glow"><div class="section-head"><h3><i class="fas fa-fire" style="color:var(--accent);margin-right:8px"></i>Trade Radar</h3><a onclick="showPage('tradeRadar')">Lihat Semua</a></div><div class="trend-list" id="homeTrendList"></div></div>
+        </div>
+        <div class="card card-glow"><div class="section-head"><h3><i class="fas fa-users" style="color:#a855f7;margin-right:8px"></i>PasarKita Terbaru</h3><a onclick="showPage('pasarKita')">Lihat Semua</a></div><div class="feed-list" id="homeFeedList"></div></div>
+      </section>
+
+      <section class="page" id="tradeRadarPage">
+        <div class="greeting"><h2>Trade Radar</h2><p>Mendeteksi tren produk yang sedang naik daun di area lokal Anda.</p></div>
+        <div class="radar-filters">
+          <div class="filter-chip active" onclick="filterRadar(this,'semua')">Semua</div>
+          <div class="filter-chip" onclick="filterRadar(this,'makanan')">Makanan</div>
+          <div class="filter-chip" onclick="filterRadar(this,'minuman')">Minuman</div>
+          <div class="filter-chip" onclick="filterRadar(this,'fashion')">Fashion</div>
+          <div class="filter-chip" onclick="filterRadar(this,'kerajinan')">Kerajinan</div>
+        </div>
+        <div class="radar-grid" id="radarGrid"></div>
+      </section>
+
+      <section class="page" id="localIndexPage">
+        <div class="greeting"><h2>Local Index</h2><p>Indeks harga bahan baku real-time tingkat kelurahan.</p></div>
+        <div class="index-controls">
+          <select class="idx-select" id="idxCommodity" onchange="updateIdxChart()"><option>Tepung Terigu</option><option>Beras</option><option>Gula Pasir</option><option>Minyak Goreng</option><option>Telur Ayam</option><option>Cabai Merah</option></select>
+          <select class="idx-select" id="idxPeriod"><option>7 Hari</option><option>30 Hari</option><option>90 Hari</option></select>
+        </div>
+        <div class="index-chart-box"><canvas id="idxChart"></canvas></div>
+        <div class="card" style="overflow-x:auto"><div class="section-head"><h3>Perbandingan Harga per Kelurahan</h3></div><table class="index-table" id="idxTable"></table></div>
+      </section>
+
+      <section class="page" id="supplyMapperPage">
+        <div class="greeting"><h2>Supply Mapper</h2><p>Peta pemasok bahan baku lokal terverifikasi dan peta pesaing di sekitar lokasi usaha.</p></div>
+        <div class="map-controls">
+          <select class="map-select" id="mapAreaSelect" onchange="changeMapArea(this.value)">
+            <option value="purwosari">Purwosari</option>
+            <option value="pleburan">Pleburan</option>
+            <option value="pedurungan">Pedurungan</option>
+            <option value="banyumanik">Banyumanik</option>
+          </select>
+          <div class="map-stats">
+            <div class="map-stat-pill supplier-pill"><div class="pill-dot"></div> <span id="mapSupplierCount">5 Supplier</span></div>
+            <div class="map-stat-pill competitor-pill"><div class="pill-dot"></div> <span id="mapCompetitorCount">4 Pesaing</span></div>
+          </div>
+        </div>
+        <div class="map-wrapper">
+          <div class="map-container" id="mapContainer">
+            <div class="map-bg-grid"></div>
+            <div class="map-road map-road-h main" style="top:35%"></div>
+            <div class="map-road map-road-h" style="top:65%"></div>
+            <div class="map-road map-road-v main" style="left:40%"></div>
+            <div class="map-road map-road-v" style="left:70%"></div>
+            <div class="map-road map-road-h" style="top:15%"></div>
+            <div class="map-road map-road-v" style="left:20%"></div>
+            <div class="map-area-label active-area" style="top:6%;left:6%" id="areaLabelPurwosari">Purwosari</div>
+            <div class="map-area-label" style="top:6%;right:6%" id="areaLabelPleburan">Pleburan</div>
+            <div class="map-area-label" style="bottom:6%;left:6%" id="areaLabelPedurungan">Pedurungan</div>
+            <div class="map-area-label" style="bottom:6%;right:6%" id="areaLabelBanyumanik">Banyumanik</div>
+            <div class="map-tooltip" id="mapTooltip"></div>
+            <div class="map-legend">
+              <span><div class="pill-dot" style="width:8px;height:8px;border-radius:50%;background:var(--primary);display:inline-block"></div> Supplier</span>
+              <span><div class="pill-dot" style="width:8px;height:8px;border-radius:50%;background:var(--danger);display:inline-block"></div> Pesaing</span>
+              <span><div class="pill-dot" style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block"></div> Anda</span>
+            </div>
+          </div>
+        </div>
+        <div class="dual-grid">
+          <div><div class="section-head"><h3 style="color:var(--primary)"><i class="fas fa-truck" style="margin-right:8px"></i>Supplier Terdekat</h3></div><div class="supplier-list" id="supplierList"></div></div>
+          <div><div class="section-head"><h3 style="color:var(--danger)"><i class="fas fa-store" style="margin-right:8px"></i>Pesaing Terdeteksi</h3></div><div class="supplier-list" id="competitorList"></div></div>
+        </div>
+      </section>
+
+      <section class="page" id="smartAdvisorPage">
+        <div class="chat-layout">
+          <div class="chat-body" id="chatBody">
+            <div class="msg msg-bot">Halo Maya! Saya Smart Advisor Delta. Tanyakan apapun tentang bisnis Anda — harga, strategi, supplier, atau prediksi pasar.
+              <div class="quick-chips">
+                <div class="quick-chip" onclick="sendQuick('Harga jual cilok saya kemahalan nggak buat area Purwosari?')">Harga jual saya kemahalan?</div>
+                <div class="quick-chip" onclick="sendQuick('Prediksi harga tepung terigu minggu depan')">Prediksi harga tepung</div>
+                <div class="quick-chip" onclick="sendQuick('Supplier tepung terigu terdekat')">Supplier terdekat</div>
+                <div class="quick-chip" onclick="sendQuick('Strategi hadapi pesaing baru di sekitar saya')">Hadapi pesaing baru</div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-footer"><input type="text" class="chat-input" id="chatInput" placeholder="Ketik pertanyaan Anda..." onkeydown="if(event.key==='Enter')sendChat()"><button class="chat-send" onclick="sendChat()" aria-label="Kirim"><i class="fas fa-paper-plane"></i></button></div>
+        </div>
+      </section>
+
+      <section class="page" id="pasarKitaPage">
+        <div class="pasar-head"><div class="greeting" style="margin-bottom:0"><h2>PasarKita</h2><p>Laporan kondisi pasar real-time dari komunitas UMKM.</p></div><button class="btn btn-primary" onclick="openModal('laporanModal')"><i class="fas fa-plus"></i> Buat Laporan</button></div>
+        <div class="pasar-stats">
+          <div class="pasar-stat"><div class="val" style="color:var(--primary)">23</div><div class="lbl">Laporan Hari Ini</div></div>
+          <div class="pasar-stat"><div class="val" style="color:var(--accent)">156</div><div class="lbl">Kontributor Aktif</div></div>
+          <div class="pasar-stat"><div class="val" style="color:var(--success)">89%</div><div class="lbl">Akurasi Data</div></div>
+        </div>
+        <div class="radar-filters" style="margin-bottom:20px">
+          <div class="filter-chip active" onclick="filterFeed(this,'semua')">Semua</div>
+          <div class="filter-chip" onclick="filterFeed(this,'harga')">Harga</div>
+          <div class="filter-chip" onclick="filterFeed(this,'stok')">Stok</div>
+          <div class="filter-chip" onclick="filterFeed(this,'pesaing')">Pesaing</div>
+          <div class="filter-chip" onclick="filterFeed(this,'lainnya')">Lainnya</div>
+        </div>
+        <div class="feed-list" id="pasarFeedList"></div>
+      </section>
+
+      <section class="page" id="profilePage">
+        <div class="profile-top"><div class="profile-pic">MN</div><h3 id="profName">Maya Novita Sari</h3><p>mayanova@umkm.id</p></div>
+        <div class="stat-grid" style="margin-bottom:24px">
+          <div class="stat-card"><div class="stat-val">12</div><div class="stat-label">Supplier</div></div>
+          <div class="stat-card"><div class="stat-val">47</div><div class="stat-label">Transaksi</div></div>
+          <div class="stat-card"><div class="stat-val">89%</div><div class="stat-label">Kepuasan</div></div>
+          <div class="stat-card"><div class="stat-val">15</div><div class="stat-label">Laporan</div></div>
+        </div>
+        <div class="setting-group"><h4>Informasi Pribadi</h4><div class="card">
+          <div class="form-group"><label>Nama Lengkap</label><input class="form-control" id="profInputName" value="Maya Novita Sari"></div>
+          <div class="form-group"><label>Email</label><input class="form-control" id="profInputEmail" value="mayanova@umkm.id"></div>
+          <div class="form-group"><label>Telepon</label><input class="form-control" value="+62 812-3456-7890"></div>
+          <div class="form-group"><label>Alamat Usaha</label><input class="form-control" value="Jl. Merpati No. 123, Purwosari, Semarang"></div>
+          <button class="btn btn-primary" onclick="saveProfile()"><i class="fas fa-check"></i> Simpan Perubahan</button>
+        </div></div>
+        <div class="setting-group"><h4>Pengaturan</h4><div class="card" style="padding:0;overflow:hidden">
+          <div class="supplier-item" style="border:none;border-radius:0;border-bottom:1px solid var(--border)" onclick="showToast('Pengaturan notifikasi dibuka','info')"><div class="supplier-icon" style="background:rgba(245,158,11,0.15);color:var(--accent)"><i class="fas fa-bell"></i></div><div class="supplier-info"><h4>Notifikasi</h4><p>Atur alert harga dan update pasar</p></div><i class="fas fa-chevron-right" style="color:var(--text-muted)"></i></div>
+          <div class="supplier-item" style="border:none;border-radius:0;border-bottom:1px solid var(--border)" onclick="showToast('Pengaturan privasi dibuka','info')"><div class="supplier-icon" style="background:rgba(59,130,246,0.15);color:var(--primary)"><i class="fas fa-shield-halved"></i></div><div class="supplier-info"><h4>Privasi & Keamanan</h4><p>Kata sandi dan data pribadi</p></div><i class="fas fa-chevron-right" style="color:var(--text-muted)"></i></div>
+          <div class="supplier-item" style="border:none;border-radius:0" onclick="showToast('Pengaturan preferensi dibuka','info')"><div class="supplier-icon" style="background:rgba(168,85,247,0.15);color:#a855f7"><i class="fas fa-sliders"></i></div><div class="supplier-info"><h4>Preferensi</h4><p>Bahasa, wilayah, dan tampilan</p></div><i class="fas fa-chevron-right" style="color:var(--text-muted)"></i></div>
+        </div></div>
+        <button class="btn btn-ghost" style="color:var(--danger);border-color:rgba(239,68,68,0.3)" onclick="doLogout()"><i class="fas fa-right-from-bracket"></i> Keluar dari Akun</button>
+      </section>
+    </div>
+  </main>
+
+  <div class="login-wrap" id="loginWrap" style="display:none">
+    <div class="login-card">
+      <h2>DELTA-E</h2><p class="sub">Masuk untuk akses dashboard Anda</p>
+      <div class="social-row"><button class="social-btn" onclick="doLogin('google')"><i class="fab fa-google"></i> Google</button><button class="social-btn" onclick="doLogin('facebook')"><i class="fab fa-facebook-f"></i> Facebook</button></div>
+      <div class="divider">atau</div>
+      <div class="form-group"><label>Email</label><input class="form-control" id="loginEmail" type="email" placeholder="email@anda.com"></div>
+      <div class="form-group"><label>Kata Sandi</label><input class="form-control" id="loginPass" type="password" placeholder="Masukkan kata sandi"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px" onclick="doLogin('email')"><i class="fas fa-arrow-right-to-bracket"></i> Masuk</button>
+      <p style="text-align:center;margin-top:20px;font-size:13px;color:var(--text-muted)">Belum punya akun? <a href="#" style="color:var(--primary);text-decoration:none" onclick="showToast('Fitur pendaftaran segera hadir','info');return false">Daftar di sini</a></p>
+    </div>
+  </div>
+
+  <nav class="bottom-nav" id="bottomNav">
+    <div class="bottom-nav-inner">
+      <button class="bnav-item active" data-page="home"><i class="fas fa-home"></i><span>Beranda</span></button>
+      <button class="bnav-item" data-page="tradeRadar"><i class="fas fa-fire"></i><span>Radar</span></button>
+      <button class="bnav-item" data-page="supplyMapper"><i class="fas fa-map-location-dot"></i><span>Peta</span></button>
+      <button class="bnav-item" data-page="smartAdvisor"><i class="fas fa-robot"></i><span>Chat</span></button>
+      <button class="bnav-item" data-page="profile"><i class="fas fa-user"></i><span>Profil</span></button>
+    </div>
+  </nav>
+
+<script>
+const trendData = [
+  { name:'Cilok Goreng', cat:'makanan', area:'Purwosari', pct:340, spark:[20,25,30,45,70,120,200,340] },
+  { name:'Es Kopi Susu', cat:'minuman', area:'Semarang Tengah', pct:280, spark:[15,20,35,50,80,140,220,280] },
+  { name:'Bakso Urat', cat:'makanan', area:'Pleburan', pct:215, spark:[30,35,40,55,70,110,170,215] },
+  { name:'Dimsum Ayam', cat:'makanan', area:'Pedurungan', pct:190, spark:[10,15,25,40,55,90,140,190] },
+  { name:'Roti Bakar', cat:'makanan', area:'Candisari', pct:165, spark:[25,30,35,45,60,80,120,165] },
+  { name:'Seblak Bandung', cat:'makanan', area:'Banyumanik', pct:145, spark:[20,25,30,40,50,70,110,145] },
+  { name:'Tas Anyaman', cat:'kerajinan', area:'Kendal', pct:120, spark:[10,12,18,25,35,55,90,120] },
+  { name:'Gelang Manik', cat:'fashion', area:'Kota Lama', pct:95, spark:[8,10,15,22,30,45,70,95] },
+];
+const idxData = {
+  'Tepung Terigu':{purwosari:[19500,19800,19200,19888,19750,19900,19888],pleburan:[19200,19500,19000,19500,19400,19600,19500],pedurungan:[19800,20100,19600,20100,20000,20200,20100],banyumanik:[19300,19600,19100,19600,19500,19700,19600]},
+  'Beras':{purwosari:[14200,14400,14100,14500,14300,14600,14500],pleburan:[14000,14200,13900,14200,14100,14300,14200],pedurungan:[14500,14700,14300,14800,14600,14900,14800],banyumanik:[14100,14300,14000,14300,14200,14400,14300]},
+  'Gula Pasir':{purwosari:[16200,16400,16100,16500,16300,16600,16500],pleburan:[15900,16100,15800,16200,16000,16300,16200],pedurungan:[16500,16700,16300,16800,16600,16900,16800],banyumanik:[16000,16200,15900,16300,16100,16400,16300]},
+  'Minyak Goreng':{purwosari:[17800,18000,17700,18200,18000,18300,18200],pleburan:[17500,17700,17400,17900,17700,18000,17900],pedurungan:[18100,18300,18000,18500,18300,18600,18500],banyumanik:[17600,17800,17500,18000,17800,18100,18000]},
+  'Telur Ayam':{purwosari:[27000,27300,26800,28000,27500,28200,28000],pleburan:[26500,26800,26300,27500,27000,27700,27500],pedurungan:[27500,27800,27300,28500,28000,28700,28500],banyumanik:[26800,27100,26600,27800,27300,28000,27800]},
+  'Cabai Merah':{purwosari:[55000,58000,52000,65000,60000,68000,65000],pleburan:[53000,56000,50000,63000,58000,66000,63000],pedurungan:[57000,60000,54000,67000,62000,70000,67000],banyumanik:[54000,57000,51000,64000,59000,67000,64000]},
+};
+const idxLabels=['Sen','Sel','Rab','Kam','Jum','Sab','Min'];
+const idxColors={purwosari:'#3b82f6',pleburan:'#f59e0b',pedurungan:'#22d3ee',banyumanik:'#a855f7'};
+const idxLabelsFull={purwosari:'Purwosari',pleburan:'Pleburan',pedurungan:'Pedurungan',banyumanik:'Banyumanik'};
+const areaData={
+  purwosari:{you:{x:'25%',y:'30%'},suppliers:[{name:'Toko Jaya Abadi',product:'Minyak, Gula, Telur',x:'18%',y:'22%',dist:'0.5 km',rating:4.7,icon:'fa-basket-shopping',color:'var(--accent)'},{name:'UD Sumber Pangan',product:'Beras, Bumbu Dapur',x:'35%',y:'18%',dist:'0.8 km',rating:4.6,icon:'fa-seedling',color:'var(--primary)'},{name:'PT Bogasari',product:'Tepung Terigu',x:'12%',y:'40%',dist:'1.2 km',rating:4.8,icon:'fa-wheat-awn',color:'var(--accent)'},{name:'Gudang Rempah Pak Hadi',product:'Rempah-rempah',x:'38%',y:'38%',dist:'1.0 km',rating:4.5,icon:'fa-pepper-hot',color:'var(--primary)'},{name:'Toko Plastik Mandiri',product:'Kemasan, Plastik',x:'20%',y:'12%',dist:'0.6 km',rating:4.3,icon:'fa-box',color:'#a855f7'}],competitors:[{name:'Cilok Mas Purwosari',product:'Makanan',x:'28%',y:'24%',dist:'200m',threat:'Tinggi',icon:'fa-fire',color:'var(--danger)'},{name:'Bakso Pak Joko',product:'Makanan',x:'32%',y:'35%',dist:'500m',threat:'Sedang',icon:'fa-bowl-food',color:'var(--accent)'},{name:'Warung Nasi Bu Siti',product:'Makanan',x:'15%',y:'28%',dist:'600m',threat:'Rendah',icon:'fa-utensils',color:'#22d3ee'},{name:'Es Teh Manis Pak Darmo',product:'Minuman',x:'22%',y:'40%',dist:'400m',threat:'Rendah',icon:'fa-mug-hot',color:'#a855f7'}]},
+  pleburan:{you:{x:'65%',y:'25%'},suppliers:[{name:'Pasar Pleburan Stok',product:'Sembako Lengkap',x:'58%',y:'18%',dist:'0.3 km',rating:4.7,icon:'fa-store',color:'var(--primary)'},{name:'UD Rizki Tani',product:'Sayuran Segar',x:'75%',y:'15%',dist:'0.7 km',rating:4.5,icon:'fa-carrot',color:'var(--success)'},{name:'Toko Bahan Kue Lina',product:'Bahan Kue & Roti',x:'70%',y:'30%',dist:'0.4 km',rating:4.6,icon:'fa-cake-candles',color:'var(--accent)'},{name:'Distributor Daging Bu Eni',product:'Daging & Ayam',x:'80%',y:'22%',dist:'1.1 km',rating:4.4,icon:'fa-drumstick-bite',color:'var(--danger)'}],competitors:[{name:'Bakso Urat Pak Dimas',product:'Makanan',x:'62%',y:'20%',dist:'150m',threat:'Tinggi',icon:'fa-bowl-food',color:'var(--danger)'},{name:'Mie Ayam Cak To',product:'Makanan',x:'72%',y:'28%',dist:'350m',threat:'Sedang',icon:'fa-plate-wheat',color:'var(--accent)'},{name:'Kopi Kenangan',product:'Minuman',x:'68%',y:'12%',dist:'500m',threat:'Rendah',icon:'fa-mug-hot',color:'#22d3ee'}]},
+  pedurungan:{you:{x:'22%',y:'72%'},suppliers:[{name:'Pasar Pedurungan',product:'Sembako Lengkap',x:'15%',y:'65%',dist:'0.4 km',rating:4.6,icon:'fa-store',color:'var(--primary)'},{name:'UD Tani Jaya',product:'Beras & Bumbu',x:'30%',y:'68%',dist:'0.9 km',rating:4.5,icon:'fa-seedling',color:'var(--success)'},{name:'Toko Minyak Goreng Sumber',product:'Minyak Goreng Curah',x:'10%',y:'78%',dist:'0.6 km',rating:4.4,icon:'fa-oil-can',color:'var(--accent)'},{name:'CV Pangan Sehat',product:'Tepung & Gula',x:'35%',y:'80%',dist:'1.3 km',rating:4.7,icon:'fa-wheat-awn',color:'#a855f7'},{name:'Rumah Potong Ayam Barokah',product:'Daging Ayam',x:'18%',y:'85%',dist:'0.8 km',rating:4.5,icon:'fa-drumstick-bite',color:'var(--danger)'},{name:'Toko Es Krim & Susu',product:'Susu & Dairy',x:'28%',y:'75%',dist:'1.0 km',rating:4.3,icon:'fa-cheese',color:'#22d3ee'}],competitors:[{name:'Dimsum Ayam Bu Rina',product:'Makanan',x:'20%',y:'70%',dist:'100m',threat:'Tinggi',icon:'fa-plate-wheat',color:'var(--danger)'},{name:'Seblak Mercon Pak Eko',product:'Makanan',x:'25%',y:'78%',dist:'300m',threat:'Sedang',icon:'fa-fire',color:'var(--accent)'},{name:'Ayam Geprek Bensu',product:'Makanan',x:'12%',y:'72%',dist:'600m',threat:'Sedang',icon:'fa-drumstick-bite',color:'var(--danger)'},{name:'Es Jeruk Segar Ibu Tini',product:'Minuman',x:'30%',y:'70%',dist:'450m',threat:'Rendah',icon:'fa-glass-water',color:'#22d3ee'},{name:'Nasi Goreng Pak Wiryo',product:'Makanan',x:'16%',y:'82%',dist:'700m',threat:'Rendah',icon:'fa-utensils',color:'#a855f7'}]},
+  banyumanik:{you:{x:'68%',y:'65%'},suppliers:[{name:'Pasar Banyumanik',product:'Sembako Lengkap',x:'60%',y:'58%',dist:'0.5 km',rating:4.7,icon:'fa-store',color:'var(--primary)'},{name:'UD Bahan Pokok Sejahtera',product:'Beras, Gula, Minyak',x:'78%',y:'60%',dist:'0.8 km',rating:4.6,icon:'fa-basket-shopping',color:'var(--accent)'},{name:'Toko Rempah Nusantara',product:'Rempah & Bumbu',x:'65%',y:'75%',dist:'0.6 km',rating:4.8,icon:'fa-pepper-hot',color:'var(--danger)'},{name:'Supplier Telur Pak Harto',product:'Telur Ayam & Bebek',x:'82%',y:'70%',dist:'1.2 km',rating:4.5,icon:'fa-egg',color:'#f59e0b'},{name:'Gudang Plastik & Kemasan',product:'Kemasan Plastik',x:'72%',y:'80%',dist:'0.9 km',rating:4.4,icon:'fa-box',color:'#a855f7'}],competitors:[{name:'Seblak Bandung Mas Bro',product:'Makanan',x:'66%',y:'62%',dist:'200m',threat:'Tinggi',icon:'fa-fire',color:'var(--danger)'},{name:'Mie Gacoan',product:'Makanan',x:'75%',y:'68%',dist:'500m',threat:'Tinggi',icon:'fa-bowl-food',color:'var(--danger)'},{name:'Kopi Janji Jiwa',product:'Minuman',x:'70%',y:'58%',dist:'350m',threat:'Sedang',icon:'fa-mug-hot',color:'var(--accent)'},{name:'Martabak Telur Pak Tono',product:'Makanan',x:'80%',y:'62%',dist:'800m',threat:'Rendah',icon:'fa-utensils',color:'#22d3ee'}]}
+};
+const feedData=[
+  {user:'Budi Santoso',initial:'BS',time:'15 menit lalu',cat:'harga',body:'Harga cabai merah di Pasar Pleburan naik drastis dari Rp40.000 menjadi Rp65.000 per kg. Pedagang bilang stok dari Kendal terhambat banjir.',likes:12,comments:3,loc:'Pasar Pleburan'},
+  {user:'Siti Aminah',initial:'SA',time:'1 jam lalu',cat:'stok',body:'Stok bawang putih mulai menipis di hampir semua pedagang Pasar Johar. Sebaiknya stock up sekarang sebelum harga naik lagi.',likes:8,comments:5,loc:'Pasar Johar'},
+  {user:'Rina Wijaya',initial:'RW',time:'2 jam lalu',cat:'pesaing',body:'Ada pedagang baru jualan dimsum di depan SD Purwosari 3. Harganya lebih murah 20% dari rata-rata. Perlu diwaspadai.',likes:15,comments:7,loc:'Purwosari'},
+  {user:'Ahmad Dahlan',initial:'AD',time:'3 jam lalu',cat:'stok',body:'Minyak goreng curah mulai sulit didapat di area Pedurungan. Beberapa warung sudah beralih ke kemasan sachet.',likes:6,comments:2,loc:'Pedurungan'},
+  {user:'Dewi Lestari',initial:'DL',time:'4 jam lalu',cat:'harga',body:'Harga telur ayam di Banyumanik turun Rp2.000/kg dibanding kemarin. Waktu yang tepat untuk stok.',likes:9,comments:1,loc:'Pasar Banyumanik'},
+  {user:'Eko Prasetyo',initial:'EP',time:'5 jam lalu',cat:'lainnya',body:'Ada himbauan dari kelurahan Purwosari agar PKL di area alun-alun mulai pukul 15.00 WIB, bukan 10.00 seperti biasa.',likes:4,comments:0,loc:'Purwosari'},
+];
+
+let isLoggedIn=true;
+const pageTitles={home:'Beranda',tradeRadar:'Trade Radar',localIndex:'Local Index',supplyMapper:'Supply Mapper',smartAdvisor:'Smart Advisor',pasarKita:'PasarKita',profile:'Pengaturan'};
+
+function showToast(msg,type='info'){const t=document.createElement('div');t.className=`toast toast-${type}`;const icons={success:'fa-check-circle',error:'fa-circle-exclamation',info:'fa-circle-info'};t.innerHTML=`<i class="fas ${icons[type]||icons.info}"></i><span>${msg}</span>`;document.getElementById('toastContainer').appendChild(t);requestAnimationFrame(()=>t.classList.add('show'));setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),300);},3000);}
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function toggleNotif(o){document.getElementById('notifPanel').classList.toggle('open',o);document.getElementById('notifBackdrop').classList.toggle('show',o);}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+
+function showPage(name){
+  if(!isLoggedIn){document.getElementById('loginWrap').style.display='flex';document.getElementById('mainContent').style.display='none';document.getElementById('bottomNav').style.display='none';return;}
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const page=document.getElementById(name+'Page');if(page)page.classList.add('active');
+  document.getElementById('pageTitle').textContent=pageTitles[name]||'DELTA-E';
+  document.querySelectorAll('.sidebar-nav a[data-page]').forEach(a=>a.classList.toggle('active',a.dataset.page===name));
+  document.querySelectorAll('.bnav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===name));
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('mainContent').scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('.sidebar-nav a[data-page]').forEach(a=>a.addEventListener('click',()=>showPage(a.dataset.page)));
+document.querySelectorAll('.bnav-item').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
+
+function doLogin(){isLoggedIn=true;document.getElementById('loginWrap').style.display='none';document.getElementById('mainContent').style.display='block';if(window.innerWidth<=768)document.getElementById('bottomNav').style.display='block';showPage('home');showToast('Login berhasil! Selamat datang kembali.','success');}
+function doLogout(){isLoggedIn=false;document.getElementById('mainContent').style.display='none';document.getElementById('bottomNav').style.display='none';document.getElementById('loginWrap').style.display='flex';showToast('Anda telah keluar.','info');}
+function saveProfile(){const n=document.getElementById('profInputName').value;if(n)document.getElementById('profName').textContent=n;showToast('Profil berhasil disimpan!','success');}
+function setGreeting(){const h=new Date().getHours();document.getElementById('greetingText').textContent=(h<11?'Selamat Pagi':h<15?'Selamat Siang':h<18?'Selamat Sore':'Selamat Malam')+', Maya';}
+setGreeting();
+
+function drawSparkline(id,data,color='#3b82f6'){const c=document.getElementById(id);if(!c)return;const ctx=c.getContext('2d');const w=c.width=c.offsetWidth*2,h=c.height=c.offsetHeight*2;ctx.clearRect(0,0,w,h);const max=Math.max(...data),min=Math.min(...data),range=max-min||1,step=w/(data.length-1);ctx.beginPath();data.forEach((v,i)=>{const x=i*step,y=h-((v-min)/range)*(h*0.8)-h*0.1;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.stroke();const lx=(data.length-1)*step;ctx.lineTo(lx,h);ctx.lineTo(0,h);ctx.closePath();const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,color+'33');g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fill();}
+
+function renderHomeTrends(){document.getElementById('homeTrendList').innerHTML=trendData.slice(0,4).map((t,i)=>`<div class="trend-item" onclick="showPage('tradeRadar')"><div class="trend-rank ${i<3?'r'+(i+1):'rn'}">${i+1}</div><div class="trend-info"><p>${t.name}</p><small>${t.area}</small></div><canvas class="trend-spark" id="hSpark${i}"></canvas><div class="trend-pct">+${t.pct}%</div></div>`).join('');setTimeout(()=>trendData.slice(0,4).forEach((t,i)=>drawSparkline('hSpark'+i,t.spark,'#3b82f6')),100);}
+function buildFeedItem(f){return `<div class="feed-item" data-cat="${f.cat}"><div class="feed-head"><div class="feed-avatar">${f.initial}</div><div class="feed-meta"><p>${f.user}</p><small>${f.time}</small></div><span class="feed-tag">${f.cat}</span></div><div class="feed-body">${f.body}</div><div class="feed-footer"><button class="feed-action" onclick="likeFeed(this,${f.likes})"><i class="far fa-heart"></i> <span>${f.likes}</span></button><button class="feed-action"><i class="far fa-comment"></i> ${f.comments}</button><button class="feed-action"><i class="fas fa-map-pin"></i> ${f.loc}</button></div></div>`;}
+function likeFeed(btn,c){const s=btn.querySelector('span'),i=btn.querySelector('i');if(btn.classList.contains('liked')){btn.classList.remove('liked');i.className='far fa-heart';s.textContent=c;}else{btn.classList.add('liked');i.className='fas fa-heart';s.textContent=c+1;}}
+function renderHomeFeed(){document.getElementById('homeFeedList').innerHTML=feedData.slice(0,3).map(f=>buildFeedItem(f)).join('');}
+
+let homeIdxChart;
+function initHomeIdxChart(){const ctx=document.getElementById('homeIdxChart');if(homeIdxChart)homeIdxChart.destroy();homeIdxChart=new Chart(ctx,{type:'line',data:{labels:idxLabels,datasets:[{label:'Purwosari',data:idxData['Tepung Terigu'].purwosari,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',borderWidth:2,tension:0.4,pointRadius:3,fill:true},{label:'Pleburan',data:idxData['Tepung Terigu'].pleburan,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.05)',borderWidth:2,tension:0.4,pointRadius:3,fill:true}]},options:chartOpts()});}
+function chartOpts(){return{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#4a5e82',font:{size:11}},grid:{color:'rgba(30,45,74,0.5)'}},y:{ticks:{color:'#4a5e82',font:{size:11},callback:v=>'Rp'+v.toLocaleString('id-ID')},grid:{color:'rgba(30,45,74,0.5)'}}},plugins:{legend:{labels:{color:'#8a9cc5',font:{size:11},boxWidth:12}},tooltip:{backgroundColor:'#111827',titleColor:'#eef2ff',bodyColor:'#8a9cc5',borderColor:'#1e2d4a',borderWidth:1,cornerRadius:10,padding:12,displayColors:true,callbacks:{label:ctx=>ctx.dataset.label+': Rp'+ctx.parsed.y.toLocaleString('id-ID')}}},interaction:{intersect:false,mode:'index'}};}
+
+function renderRadarGrid(cat='semua'){const f=cat==='semua'?trendData:trendData.filter(t=>t.cat===cat);document.getElementById('radarGrid').innerHTML=f.map((t,i)=>`<div class="radar-card" onclick="showToast('Detail ${t.name}: ${t.pct}% tren naik di ${t.area}','info')"><div class="radar-card-top"><h4>${t.name}</h4><span class="radar-badge">+${t.pct}%</span></div><div class="radar-card-cat"><i class="fas fa-map-pin"></i> ${t.area} &middot; ${t.cat}</div><canvas class="radar-card-spark" id="rSpark${i}"></canvas><div class="radar-card-bottom"><span>Data 7 hari terakhir</span><div class="radar-card-pct up"><i class="fas fa-arrow-trend-up"></i> ${t.pct}%</div></div></div>`).join('');setTimeout(()=>f.forEach((t,i)=>drawSparkline('rSpark'+i,t.spark,'#3b82f6')),100);}
+function filterRadar(el,cat){el.parentElement.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderRadarGrid(cat);}
+
+let idxChart;
+function initIdxChart(){const ctx=document.getElementById('idxChart');if(idxChart)idxChart.destroy();const d=idxData[document.getElementById('idxCommodity').value];idxChart=new Chart(ctx,{type:'line',data:{labels:idxLabels,datasets:Object.keys(d).map(k=>({label:idxLabelsFull[k],data:d[k],borderColor:idxColors[k],backgroundColor:idxColors[k]+'14',borderWidth:2.5,tension:0.4,pointRadius:4,pointHoverRadius:6,fill:true}))},options:chartOpts()});}
+function updateIdxChart(){initIdxChart();renderIdxTable();}
+function renderIdxTable(){const d=idxData[document.getElementById('idxCommodity').value];const kk=Object.keys(d);const lastP=kk.map(k=>d[k][d[k].length-1]),prevP=kk.map(k=>d[k][d[k].length-2]),avg=Math.round(lastP.reduce((a,b)=>a+b,0)/lastP.length);let html=`<thead><tr><th>Kelurahan</th><th>Harga/kg</th><th>Perubahan</th><th>vs Rata-rata</th></tr></thead><tbody>`;kk.forEach((k,i)=>{const diff=lastP[i]-prevP[i],pct=((diff/prevP[i])*100).toFixed(1),cls=diff>0?'price-up':diff<0?'price-down':'price-same',arrow=diff>0?'fa-arrow-up':diff<0?'fa-arrow-down':'fa-minus';const vsAvg=lastP[i]-avg,vsCls=vsAvg>0?'price-up':vsAvg<0?'price-down':'price-same';html+=`<tr><td><span class="kel-tag" style="border-left:3px solid ${idxColors[k]};padding-left:10px">${idxLabelsFull[k]}</span></td><td style="font-weight:600">Rp${lastP[i].toLocaleString('id-ID')}</td><td class="${cls}"><i class="fas ${arrow}" style="font-size:11px"></i> ${Math.abs(pct)}%</td><td class="${vsCls}">${vsAvg>0?'+':''}Rp${vsAvg.toLocaleString('id-ID')}</td></tr>`;});html+=`<tr style="background:var(--surface-1)"><td style="font-weight:700">Rata-rata</td><td style="font-weight:700;color:var(--accent)">Rp${avg.toLocaleString('id-ID')}</td><td colspan="2"></td></tr></tbody>`;document.getElementById('idxTable').innerHTML=html;}
+
+let currentArea='purwosari';
+function renderMap(area){currentArea=area;const container=document.getElementById('mapContainer');const data=areaData[area];container.querySelectorAll('.map-marker,.map-you').forEach(el=>el.remove());['purwosari','pleburan','pedurungan','banyumanik'].forEach(a=>{const label=document.getElementById('areaLabel'+a.charAt(0).toUpperCase()+a.slice(1));if(label)label.classList.toggle('active-area',a===area);});const you=document.createElement('div');you.className='map-you';you.style.left=data.you.x;you.style.top=data.you.y;you.innerHTML='<div class="map-you-dot"></div><div class="map-you-label">Lokasi Anda</div>';container.appendChild(you);data.suppliers.forEach(s=>{const m=document.createElement('div');m.className='map-marker';m.style.left=s.x;m.style.top=s.y;m.innerHTML=`<div class="map-marker-pin supplier-pin"><i class="fas ${s.icon}"></i></div><div class="map-marker-label">${s.name}</div>`;m.onmouseenter=e=>showMapTooltip(e,s,'supplier');m.onmouseleave=hideMapTooltip;container.appendChild(m);});data.competitors.forEach(c=>{const m=document.createElement('div');m.className='map-marker';m.style.left=c.x;m.style.top=c.y;m.innerHTML=`<div class="map-marker-pin competitor-pin"><i class="fas ${c.icon}"></i></div><div class="map-marker-label">${c.name}</div>`;m.onmouseenter=e=>showMapTooltip(e,c,'competitor');m.onmouseleave=hideMapTooltip;container.appendChild(m);});document.getElementById('mapSupplierCount').textContent=data.suppliers.length+' Supplier';document.getElementById('mapCompetitorCount').textContent=data.competitors.length+' Pesaing';renderSupplierList(area);renderCompetitorList(area);}
+function showMapTooltip(e,m,type){const tt=document.getElementById('mapTooltip');const threatHtml=type==='competitor'?`<div class="tt-row"><i class="fas fa-triangle-exclamation" style="color:var(--accent)"></i> Ancaman: ${m.threat}</div>`:'';const ratingHtml=type==='supplier'?`<div class="tt-row"><i class="fas fa-star" style="color:var(--accent)"></i> Rating: ${m.rating}/5.0</div>`:'';tt.innerHTML=`<h4>${m.name}</h4><p>${m.product}</p>${ratingHtml}${threatHtml}<div class="tt-row"><i class="fas fa-route" style="color:var(--text-muted)"></i> Jarak: ${m.dist}</div><span class="tt-type ${type==='supplier'?'tt-supplier':'tt-competitor'}">${type==='supplier'?'Supplier Terverifikasi':'Pesaing Terdeteksi'}</span>`;tt.classList.add('show');const rect=document.getElementById('mapContainer').getBoundingClientRect();const mx=parseFloat(m.x),my=parseFloat(m.y);let left=mx+30,top=my-20;if(left+230>rect.width)left=mx-240;if(top+130>rect.height)top=my-120;if(top<10)top=10;tt.style.left=left+'px';tt.style.top=top+'px';}
+function hideMapTooltip(){document.getElementById('mapTooltip').classList.remove('show');}
+function changeMapArea(area){renderMap(area);}
+function renderSupplierList(area){document.getElementById('supplierList').innerHTML=areaData[area].suppliers.map(s=>`<div class="supplier-item" onclick="showToast('Membuka detail ${s.name}','info')"><div class="supplier-icon" style="background:${s.color}20;color:${s.color}"><i class="fas ${s.icon}"></i></div><div class="supplier-info"><h4>${s.name}</h4><p>${s.product}</p></div><div style="text-align:right"><div class="supplier-dist">${s.dist}</div><div class="supplier-rating"><i class="fas fa-star"></i> ${s.rating}</div></div></div>`).join('');}
+function renderCompetitorList(area){document.getElementById('competitorList').innerHTML=areaData[area].competitors.map(c=>{const ts=c.threat==='Tinggi'?'background:rgba(239,68,68,0.15);color:var(--danger)':c.threat==='Sedang'?'background:rgba(245,158,11,0.15);color:var(--accent)':'background:rgba(34,197,94,0.15);color:var(--success)';return `<div class="supplier-item" onclick="showToast('Analisis pesaing ${c.name}','info')"><div class="supplier-icon" style="background:${c.color}20;color:${c.color}"><i class="fas ${c.icon}"></i></div><div class="supplier-info"><h4>${c.name}</h4><p>${c.product} &middot; ${c.dist}</p></div><span class="threat-badge" style="${ts}">${c.threat}</span></div>`;}).join('');}
+
+function sendChat(){const input=document.getElementById('chatInput'),msg=input.value.trim();if(!msg)return;addMsg(msg,'user');input.value='';showTyping();setTimeout(()=>{removeTyping();addMsg(generateReply(msg),'bot');},1200+Math.random()*800);}
+function sendQuick(text){addMsg(text,'user');showTyping();setTimeout(()=>{removeTyping();addMsg(generateReply(text),'bot');},1000+Math.random()*600);}
+function addMsg(text,sender){const d=document.createElement('div');d.className=`msg msg-${sender}`;d.textContent=text;document.getElementById('chatBody').appendChild(d);document.getElementById('chatBody').scrollTop=999999;}
+function showTyping(){const d=document.createElement('div');d.className='typing';d.id='typingInd';d.innerHTML='<span></span><span></span><span></span>';document.getElementById('chatBody').appendChild(d);document.getElementById('chatBody').scrollTop=999999;}
+function removeTyping(){const t=document.getElementById('typingInd');if(t)t.remove();}
+function generateReply(msg){const m=msg.toLowerCase();if(m.includes('kemahalan')||m.includes('harga jual'))return'Berdasarkan data Local Index Purwosari, harga rata-rata cilok di area Anda saat ini Rp2.000-3.000/pcs. Jika Anda menjual di atas Rp3.500, bisa dibilang agak tinggi. Tapi tergantung ukuran dan topping. Saran: coba benchmark ke 3 pesaing terdekat di Supply Mapper untuk menentukan harga kompetitif.';if(m.includes('prediksi')&&m.includes('tepung'))return'Berdasarkan analisis tren 30 hari terakhir, harga tepung terigu diperkirakan stabil di kisaran Rp19.500-20.500/kg untuk minggu depan. Namun ada indikasi kenaikan 3-5% di 2-3 minggu ke depan karena musim panen. Saran: stok sekarang jika memungkinkan.';if(m.includes('supplier')&&(m.includes('tepun')||m.includes('dekat')))return'Dari Supply Mapper, ada 2 supplier tepung dekat Anda:\n1. PT Bogasari (1.2 km) - Rating 4.8, harga kompetitif\n2. Toko Jaya Abadi (0.5 km) - Rating 4.7, stok lengkap\nRekomendasi: Toko Jaya untuk kebutuhan darurat karena lebih dekat, Bogasari untuk pembelian grosir.';if(m.includes('pesaing'))return'Supply Mapper mendeteksi 4 pesaing di radius 1.5 km:\n- Cilok Mas Purwosari (200m) - THREAT TINGGI, harga lebih murah 15%\n- Bakso Pak Joko (500m) - THREAT SEDANG\n- Warung Nasi Bu Siti (600m) - THREAT RENDAH\nStrategi: Fokus diferensiasi rasa dan promo bundling untuk counter Cilok Mas.';if(m.includes('strategi')||m.includes('saran'))return'Berdasarkan data Trade Radar dan Local Index, berikut rekomendasi:\n1. Naikkan harga sedikit (5%) karena demand cilok naik 340%\n2. Tambah varian topping untuk diferensiasi dari pesaing\n3. Manfaatkan momentum trending di media sosial\n4. Stok bahan baku sekarang sebelum harga naik';const defaults=['Pertanyaan bagus! Saya bisa membantu analisis harga, prediksi pasar, rekomendasi supplier, dan strategi bisnis. Coba tanyakan sesuatu yang lebih spesifik tentang area atau produk Anda.','Saya menganalisis data terbaru. Untuk memberikan rekomendasi yang tepat, bisakah Anda sebutkan produk dan lokasi usaha spesifik Anda?','Dari data yang saya miliki, saya bisa bantu dengan: harga bahan baku per kelurahan, tren produk lokal, peta supplier & pesaing, dan prediksi pasar. Mau yang mana dulu?'];return defaults[Math.floor(Math.random()*defaults.length)];}
+
+let currentFeedFilter='semua';
+function renderPasarFeed(cat='semua'){currentFeedFilter=cat;const f=cat==='semua'?feedData:feedData.filter(x=>x.cat===cat);document.getElementById('pasarFeedList').innerHTML=f.map(x=>buildFeedItem(x)).join('');}
+function filterFeed(el,cat){el.parentElement.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderPasarFeed(cat);}
+function submitLaporan(){const kat=document.getElementById('laporanKategori').value,lok=document.getElementById('laporanLokasi').value,desc=document.getElementById('laporanDesc').value;if(!lok||!desc){showToast('Harap isi lokasi dan deskripsi.','error');return;}feedData.unshift({user:'Maya Novita',initial:'MN',time:'Baru saja',cat:kat,body:desc,likes:0,comments:0,loc:lok});closeModal('laporanModal');renderPasarFeed(currentFeedFilter);renderHomeFeed();document.getElementById('laporanLokasi').value='';document.getElementById('laporanDesc').value='';showToast('Laporan berhasil dikirim ke komunitas!','success');}
+
+function init(){if(!isLoggedIn){document.getElementById('loginWrap').style.display='flex';document.getElementById('mainContent').style.display='none';return;}renderHomeTrends();renderHomeFeed();initHomeIdxChart();renderRadarGrid();initIdxChart();renderIdxTable();renderMap('purwosari');renderPasarFeed();}
+init();
+window.addEventListener('resize',()=>{renderHomeTrends();renderRadarGrid();});
+</script>
+</body>
+</html>
